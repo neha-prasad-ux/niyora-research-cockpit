@@ -60,6 +60,7 @@ def _conn():
             row_number() OVER (ORDER BY (friendly_title IS NULL), relevance DESC, cites DESC) rn
             FROM papers""")
         c.execute("UPDATE papers SET seq=_ord.rn FROM _ord WHERE papers.uid=_ord.uid")
+    c.execute("CREATE TABLE IF NOT EXISTS app_state (k TEXT PRIMARY KEY, v TEXT)")
     return c
 
 
@@ -83,6 +84,15 @@ def set_status(uid, status):
 def set_utags(uid, tags):
     keep = sorted({t.strip() for t in tags if t and t.strip()})
     _run("UPDATE papers SET user_tags=? WHERE uid=?", [",".join(keep), uid], False)
+
+
+def get_state(k):
+    r = _run("SELECT v FROM app_state WHERE k=?", [k], True)
+    return r["v"][0] if len(r) else None
+
+
+def set_state(k, v):
+    _run("INSERT INTO app_state VALUES (?,?) ON CONFLICT (k) DO UPDATE SET v=excluded.v", [k, str(v)], False)
 
 
 def utags_of(r):
@@ -172,7 +182,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stPopover"] but
 /* target only the innermost action row (no nested horizontal block inside it) */
 div[data-testid="stHorizontalBlock"]:has(.rmob):not(:has(div[data-testid="stHorizontalBlock"])) {display:none !important;}
 @media (max-width:640px) {
-    .ctitle {font-size:1.5rem;}
+    .ctitle {font-size:1.5rem; -webkit-line-clamp:unset; display:block; overflow:visible;}
     div[data-testid="stHorizontalBlock"]:has(.rdesk):not(:has(div[data-testid="stHorizontalBlock"])) {display:none !important;}
     div[data-testid="stHorizontalBlock"]:has(.rmob):not(:has(div[data-testid="stHorizontalBlock"])) {display:flex !important;}
 }
@@ -215,7 +225,11 @@ order = {"Reading order": "seq",
 
 # reset to first page whenever the filters/sort/page-size change
 fkey = (lane, mytag, sort, int(count), hearted_only, search)
-if st.session_state.get("fkey") != fkey:
+if "initialized" not in st.session_state:
+    st.session_state.page = int(get_state("last_page") or 0)   # resume where you left off
+    st.session_state.fkey = fkey
+    st.session_state.initialized = True
+elif st.session_state.get("fkey") != fkey:
     st.session_state.page = 0
     st.session_state.fkey = fkey
 
@@ -284,9 +298,9 @@ for i in range(0, len(rows), PER_ROW):
 st.write("")
 pg = st.columns([1, 1, 4])
 if pg[0].button("← Prev", disabled=st.session_state.page <= 0, use_container_width=True):
-    st.session_state.page -= 1; st.rerun()
+    st.session_state.page -= 1; set_state("last_page", st.session_state.page); st.rerun()
 if pg[1].button("Next →", disabled=st.session_state.page >= pages - 1, use_container_width=True):
-    st.session_state.page += 1; st.rerun()
+    st.session_state.page += 1; set_state("last_page", st.session_state.page); st.rerun()
 pg[2].caption(f"Page {st.session_state.page + 1} of {pages} · "
               f"showing {offset + 1}–{offset + len(df)} of {tot_filtered:,}")
 
