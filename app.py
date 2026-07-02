@@ -169,6 +169,8 @@ div[data-testid="stVerticalBlockBorderWrapper"]:hover {
 .pill {padding:1px 9px; border-radius:20px; font-size:.72rem; margin-right:8px;}
 .pill.new {background:#eaf5ee; color:#2e7d5b;} .pill.old {background:#f1eeec; color:#9a9088;}
 .utags {margin-top:.5rem;}
+.stopmark {display:inline-block; background:#fbe4ee; color:#c14d84; font-size:.72rem;
+    font-weight:600; padding:2px 11px; border-radius:20px; margin-bottom:8px;}
 div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stHorizontalBlock"] {gap:4px !important;}
 div[data-testid="stVerticalBlockBorderWrapper"] .stButton button,
 div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stPopover"] button {
@@ -262,6 +264,8 @@ for i in range(0, len(rows), PER_ROW):
             cur = utags_of(r)
             is_new = str(r["year"]).isdigit() and int(r["year"]) >= THIS_YEAR - 3
             hearted = r["status"] == "promoted"
+            if reached and r["seq"] == reached:
+                st.markdown('<div class="stopmark">🌸 you left off here</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="ctitle"><a href="{r["link"]}" target="_blank" rel="noopener">'
                         f'{card_title(r)}</a></div>', unsafe_allow_html=True)
             pill = f'<span class="pill {"new" if is_new else "old"}">{"New" if is_new else "Older"}</span>'
