@@ -1,0 +1,10 @@
+research.db
+*.db
+*.db.wal
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+curated-*.xlsx
+hearted-*.xlsx
+promoted-*.xlsx
+.DS_Store
