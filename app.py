@@ -47,7 +47,11 @@ def _require_password():
 @st.cache_resource
 def _conn():
     token = os.environ.get("MOTHERDUCK_TOKEN") or _secret("motherduck_token")
-    c = duckdb.connect(f"md:niyora_research?motherduck_token={token}") if token else duckdb.connect(DB)
+    if token:
+        os.environ["MOTHERDUCK_TOKEN"] = token   # extension reads it from env
+        c = duckdb.connect("md:niyora_research")
+    else:
+        c = duckdb.connect(DB)                    # local fallback
     c.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS friendly_title TEXT")
     c.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS user_tags TEXT DEFAULT ''")
     c.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS seq INTEGER")
