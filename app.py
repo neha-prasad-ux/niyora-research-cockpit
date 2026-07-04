@@ -215,7 +215,7 @@ lane = fb[1].selectbox("Lane", lanes, label_visibility="collapsed")
 mytag = fb[2].selectbox("My tag", ["Any tag"] + known, label_visibility="collapsed")
 sort = fb[3].selectbox("Sort", ["Reading order", "Freshest voice first", "To review first",
                                 "Most cited", "Newest", "Hearted"], label_visibility="collapsed")
-count = fb[4].selectbox("Show", [20, 40, 80, 160], index=1, label_visibility="collapsed")
+count = fb[4].selectbox("Show", [20, 40, 80, 160], index=0, label_visibility="collapsed")
 hearted_only = fb[5].toggle("♥ hearted")
 
 where, params = [], []
