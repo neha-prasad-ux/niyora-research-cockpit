@@ -122,6 +122,16 @@ def all_known_tags():
     return DEFAULT_TAGS + sorted(found - set(DEFAULT_TAGS))
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def cached_lanes():
+    return q("SELECT DISTINCT lane FROM papers ORDER BY lane")["lane"].tolist()
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def cached_known_tags():
+    return all_known_tags()
+
+
 def clean(t):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t)).strip() if isinstance(t, str) else ""
 
@@ -197,15 +207,15 @@ st.markdown('<div class="hero"><h1>Hey, here\'s what we\'re learning about your 
             unsafe_allow_html=True)
 
 # ---------------- top filter bar ----------------
-lanes = ["All lanes"] + q("SELECT DISTINCT lane FROM papers ORDER BY lane")["lane"].tolist()
-known = all_known_tags()
+lanes = ["All lanes"] + cached_lanes()
+known = cached_known_tags()
 fb = st.columns([3, 2, 1.8, 1.9, 1.2, 1.5])
 search = fb[0].text_input("Search", placeholder="Search anything…", label_visibility="collapsed")
 lane = fb[1].selectbox("Lane", lanes, label_visibility="collapsed")
 mytag = fb[2].selectbox("My tag", ["Any tag"] + known, label_visibility="collapsed")
 sort = fb[3].selectbox("Sort", ["Reading order", "Freshest voice first", "To review first",
                                 "Most cited", "Newest", "Hearted"], label_visibility="collapsed")
-count = fb[4].selectbox("Show", [20, 40, 80, 160], index=3, label_visibility="collapsed")
+count = fb[4].selectbox("Show", [20, 40, 80, 160], index=1, label_visibility="collapsed")
 hearted_only = fb[5].toggle("♥ hearted")
 
 where, params = [], []
@@ -243,12 +253,14 @@ offset = st.session_state.page * page_size
 df = q(f"SELECT * FROM papers{where_sql} ORDER BY {order} LIMIT {page_size} OFFSET {offset}", params)
 
 # ---------------- reading-progress tracker ----------------
-total = q("SELECT count(*) n FROM papers")["n"][0]
-hearts = q("SELECT count(*) n FROM papers WHERE status='promoted'")["n"][0]
-tagged = q("SELECT count(*) n FROM papers WHERE user_tags <> ''")["n"][0]
-reached = q("SELECT coalesce(max(seq),0) n FROM papers WHERE status<>'new' OR user_tags<>''")["n"][0]
-to_translate = q("SELECT count(*) n FROM papers "
-                 "WHERE (status='promoted' OR user_tags<>'') AND friendly_title IS NULL")["n"][0]
+_agg = q("""SELECT count(*) total,
+    count(*) FILTER (WHERE status='promoted') hearts,
+    count(*) FILTER (WHERE user_tags<>'') tagged,
+    coalesce(max(CASE WHEN status<>'new' OR user_tags<>'' THEN seq END), 0) reached,
+    count(*) FILTER (WHERE (status='promoted' OR user_tags<>'') AND friendly_title IS NULL) to_translate
+    FROM papers""")
+total = int(_agg["total"][0]); hearts = int(_agg["hearts"][0]); tagged = int(_agg["tagged"][0])
+reached = int(_agg["reached"][0]); to_translate = int(_agg["to_translate"][0])
 st.progress(reached / total if total else 0,
             text=f"You've reached {reached:,} of {total:,}  ·  {(reached/total*100 if total else 0):.0f}% through the bank")
 tail = f" · 🌸 {to_translate} picks ready for their Californian rewrite" if to_translate else ""
